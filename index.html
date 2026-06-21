@@ -188,29 +188,42 @@
             }
         }
 
-        // ✉️ 「Gmailに送る」ボタンを押したときの動き
+        // ✉️ 「Gmailに送る」ボタンを押したときの動き（自分用の備忘録版）
         document.getElementById('gmailBtn').addEventListener('click', () => {
             const totalBill = document.getElementById('totalBill').value || 0;
             const currentCollected = document.getElementById('currentCollected').textContent;
+            const statusMessage = document.getElementById('statusMessage').textContent;
             
-            let mailBody = `【飲み会清算メモ】\n`;
-            mailBody += `支払総額: ${Number(totalBill).toLocaleString()} 円\n`;
-            mailBody += `回収合計: ${currentCollected} 円\n`;
-            mailBody += `-----------------------\n`;
+            // 件名（タイトル）に「飲み会清算メモ」と日付を入れる
+            const today = new Date();
+            const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
+            const mailSubject = `【備忘録】飲み会清算メモ（${dateStr}）`;
 
+            // 自分用のメモとして中身を組み立てる
+            let mailBody = `以下の内容で清算の計算をしました。\n\n`;
+            mailBody += `■ 全体の会計\n`;
+            mailBody += `支払総額: ${Number(totalBill).toLocaleString()} 円\n`;
+            mailBody += `現在の集金合計: ${currentCollected} 円\n`;
+            mailBody += `計算状況: ${statusMessage}\n`;
+            mailBody += `-----------------------\n\n`;
+
+            mailBody += `■ 内訳（グループごとの設定）\n`;
             const rows = document.querySelectorAll('.group-row');
             rows.forEach(row => {
                 const name = row.querySelector('.group-name').value || '未設定';
                 const count = row.querySelector('.group-count').value || 0;
                 const price = row.querySelector('.group-price').value || 0;
                 const subtotal = count * price;
-                mailBody += `${name}: ${count}人 × ${Number(price).toLocaleString()}円 = ${subtotal.toLocaleString()}円\n`;
+                mailBody += `・${name}: ${count}人 × ${Number(price).toLocaleString()}円 ＝ 小計 ${subtotal.toLocaleString()}円\n`;
             });
 
-            mailBody += `-----------------------\n`;
-            mailBody += `送金はPayPay等でお願いします！`;
+            mailBody += `\n-----------------------\n`;
+            mailBody += `※このメールは自分の備忘録用です。`;
 
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&body=${encodeURIComponent(mailBody)}`;
+            // GmailのURLを作成（件名 su= と 本文 body= をセット）
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
+
+            // 新しいタブでGmailを開く
             window.open(gmailUrl, '_blank');
         });
     </script>
