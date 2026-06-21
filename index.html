@@ -46,7 +46,6 @@
         .delete-btn { background-color: #e74c3c; color: white; padding: 6px 10px; font-size: 12px; }
         .delete-btn:hover { background-color: #c0392b; }
         
-        /* 💡 電卓エリア（複数会計計算用）のスタイル */
         .calculator-box {
             background: #fffde7;
             border: 1px dashed #fbc02d;
@@ -56,18 +55,6 @@
         }
         #applyReceiptTotalBtn { background-color: #f39c12; color: white; width: 100%; margin-top: 10px; }
         #applyReceiptTotalBtn:hover { background-color: #d35400; }
-        
-        #gmailBtn { 
-            display: block;
-            width: 100%;
-            background-color: #2ecc71; 
-            color: white; 
-            padding: 12px; 
-            font-size: 16px;
-            border-radius: 6px;
-            box-shadow: 0 3px 0 #27ae60;
-        }
-        #gmailBtn:hover { background-color: #27ae60; margin-top: 2px; box-shadow: 0 1px 0 #27ae60; }
         
         .result-box { background: #ecf0f1; border-radius: 8px; padding: 15px; text-align: center; }
         .result-total { font-size: 20px; font-weight: bold; margin: 10px 0; }
@@ -86,7 +73,7 @@
         <h2>1. 全体の会計</h2>
         <div style="margin-bottom: 10px;">
             <label for="totalBill">支払総額：</label>
-            <input type="number" id="totalBill" value="15000" min="0" style="width: 120px;"> 円
+            <input type="number" id="totalBill" value="0" min="0" style="width: 120px;"> 円
         </div>
         
         <div class="calculator-box">
@@ -104,7 +91,8 @@
 
     <section>
         <h2>2. グループごとの設定</h2>
-        <div id="groupsContainer"></div>
+        <div id="groupsContainer">
+            </div>
         <button type="button" id="addGroupBtn">＋ グループを追加する</button>
     </section>
 
@@ -114,23 +102,18 @@
         <div id="statusMessage" class="perfect">金額を入力してください</div>
     </section>
 
-    <button type="button" id="gmailBtn">
-        ✉️ 計算結果をGmailに送る
-    </button>
-
     <script>
         let groupCounter = 0;
         let receiptCounter = 0;
 
         // 画面起動時の初期処理
         window.addEventListener('DOMContentLoaded', () => {
-            // 最初からグループを2つ用意
-            createGroupRow('先輩', 3, 4000);
-            createGroupRow('後輩', 2, 1500);
+            // 最初はすべて真っ白な空欄の入力欄を2つずつ用意しておく
+            createReceiptRow('', 0);
+            createReceiptRow('', 0);
             
-            // 最初からレシート入力を2つ用意
-            createReceiptRow('1軒目居酒屋', 12000);
-            createReceiptRow('2軒目バー', 3000);
+            createGroupRow('', 0, 0);
+            createGroupRow('', 0, 0);
             
             calculateReceiptTotal();
             calculateTotal();
@@ -149,8 +132,8 @@
             row.id = `receipt-row-${receiptCounter}`;
 
             row.innerHTML = `
-                <input type="text" placeholder="例: 2軒目、コンビニ" value="${label}" class="receipt-label" style="width: 150px;">
-                <input type="number" value="${amount}" min="0" step="100" class="receipt-amount" style="width: 100px;"> 円
+                <input type="text" placeholder="例: 1軒目、2軒目" value="${label}" class="receipt-label" style="width: 150px;">
+                <input type="number" value="${amount > 0 ? amount : ''}" placeholder="0" min="0" step="100" class="receipt-amount" style="width: 100px;"> 円
                 <button type="button" class="delete-btn" style="padding: 4px 8px; font-size: 11px;" onclick="removeReceiptRow(${receiptCounter})">削除</button>
             `;
             container.appendChild(row);
@@ -159,7 +142,7 @@
         }
 
         function removeReceiptRow(id) {
-            const row = document.getElementById(`receipt-row-${id}`);
+            const row = document.getElementById(`group-row-${id}` ? `receipt-row-${id}` : '');
             if (row) { row.remove(); calculateReceiptTotal(); }
         }
 
@@ -173,24 +156,23 @@
             document.getElementById('receiptTotal').textContent = total.toLocaleString();
         }
 
-        // 「支払総額にセットする」ボタンを押した時
         document.getElementById('applyReceiptTotalBtn').addEventListener('click', () => {
             const total = document.getElementById('receiptTotal').textContent.replace(/,/g, '');
             document.getElementById('totalBill').value = total;
-            calculateTotal(); // 割り勘計算側も再計算
+            calculateTotal(); 
             alert(`支払総額を ${Number(total).toLocaleString()} 円に更新しました！`);
         });
 
 
         // --- 👥 傾斜割り勘計算の仕組み ---
         document.getElementById('addGroupBtn').addEventListener('click', () => {
-            createGroupRow('', 1, 0);
+            createGroupRow('', 0, 0);
             calculateTotal();
         });
 
         document.getElementById('totalBill').addEventListener('input', calculateTotal);
 
-        function createGroupRow(name = '', count = 1, price = 0) {
+        function createGroupRow(name = '', count = 0, price = 0) {
             groupCounter++;
             const container = document.getElementById('groupsContainer');
             const row = document.createElement('div');
@@ -198,9 +180,9 @@
             row.id = `group-row-${groupCounter}`;
 
             row.innerHTML = `
-                <input type="text" placeholder="グループ名" value="${name}" class="group-name" style="width: 100px;">
-                <input type="number" value="${count}" min="1" class="group-count" style="width: 50px;"> 人
-                <input type="number" value="${price}" min="0" step="100" class="group-price" style="width: 80px;"> 円
+                <input type="text" placeholder="例: 先輩、後輩" value="${name}" class="group-name" style="width: 100px;">
+                <input type="number" value="${count > 0 ? count : ''}" placeholder="0" min="0" class="group-count" style="width: 50px;"> 人
+                <input type="number" value="${price > 0 ? price : ''}" placeholder="0" min="0" step="100" class="group-price" style="width: 80px;"> 円
                 <span class="group-subtotal">小計: 0 円</span>
                 <button type="button" class="delete-btn" onclick="removeGroupRow(${groupCounter})">削除</button>
             `;
@@ -248,50 +230,6 @@
                 statusMessage.className = "surplus";
             }
         }
-
-        // --- ✉️ Gmail送信（備忘録版） ---
-        document.getElementById('gmailBtn').addEventListener('click', () => {
-            const totalBill = document.getElementById('totalBill').value || 0;
-            const currentCollected = document.getElementById('currentCollected').textContent;
-            const statusMessage = document.getElementById('statusMessage').textContent;
-            
-            const today = new Date();
-            const dateStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
-            const mailSubject = `【備忘録】飲み会清算メモ（${dateStr}）`;
-
-            let mailBody = `以下の内容で清算の計算をしました。\n\n`;
-            mailBody += `■ 全体の会計\n`;
-            mailBody += `支払総額: ${Number(totalBill).toLocaleString()} 円\n`;
-            mailBody += `現在の集金合計: ${currentCollected} 円\n`;
-            mailBody += `計算状況: ${statusMessage}\n`;
-            mailBody += `-----------------------\n\n`;
-
-            // 💡 電卓のレシート内訳もメールに残るように拡張！
-            mailBody += `■ お会計の内訳\n`;
-            const receiptRows = document.querySelectorAll('.receipt-row');
-            receiptRows.forEach(row => {
-                const label = row.querySelector('.receipt-label').value || '未設定';
-                const amount = row.querySelector('.receipt-amount').value || 0;
-                mailBody += `・${label}: ${Number(amount).toLocaleString()} 円\n`;
-            });
-            mailBody += `-----------------------\n\n`;
-
-            mailBody += `■ 清算の内訳（グループごとの設定）\n`;
-            const rows = document.querySelectorAll('.group-row');
-            rows.forEach(row => {
-                const name = row.querySelector('.group-name').value || '未設定';
-                const count = row.querySelector('.group-count').value || 0;
-                const price = row.querySelector('.group-price').value || 0;
-                const subtotal = count * price;
-                mailBody += `・${name}: ${count}人 × ${Number(price).toLocaleString()}円 ＝ 小計 ${subtotal.toLocaleString()}円\n`;
-            });
-
-            mailBody += `\n-----------------------\n`;
-            mailBody += `※このメールは自分の備忘録用です。`;
-
-            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
-            window.open(gmailUrl, '_blank');
-        });
     </script>
 </body>
 </html>
