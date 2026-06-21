@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>お会計清算カンタン幹事くん</title>
+    <style>
+        /* 画面全体の見た目を整えるデザイン（CSS） */
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            padding: 20px; 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        h1 { font-size: 24px; text-align: center; color: #2c3e50; }
+        h2 { font-size: 18px; color: #34495e; border-left: 4px solid #3498db; padding-left: 8px; }
+        section { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        hr { border: 0; height: 1px; background: #eee; margin: 20px 0; }
+        
+        /* 入力欄のスタイル */
+        input[type="number"], input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        /* グループごとの行のスタイル */
+        .group-row { 
+            margin-bottom: 12px; 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+            flex-wrap: wrap;
+        }
+        .group-subtotal { min-width: 90px; text-align: right; font-weight: bold; color: #555; }
+        
+        /* ボタンのスタイル */
+        button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        #addGroupBtn { background-color: #3498db; color: white; }
+        #addGroupBtn:hover { background-color: #2980b9; }
+        .delete-btn { background-color: #e74c3c; color: white; padding: 6px 10px; font-size: 12px; }
+        .delete-btn:hover { background-color: #c0392b; }
+        #gmailBtn { 
+            display: block;
+            width: 100%;
+            background-color: #2ecc71; 
+            color: white; 
+            padding: 12px; 
+            font-size: 16px;
+            border-radius: 6px;
+            box-shadow: 0 3px 0 #27ae60;
+        }
+        #gmailBtn:hover { background-color: #27ae60; margin-top: 2px; box-shadow: 0 1px 0 #27ae60; }
+        
+        /* 計算結果ボックス */
+        .result-box { background: #ecf0f1; border-radius: 8px; padding: 15px; text-align: center; }
+        .result-total { font-size: 20px; font-weight: bold; margin: 10px 0; }
+        #statusMessage { font-size: 16px; font-weight: bold; padding: 8px; border-radius: 4px; display: inline-block; }
+        
+        /* メッセージの色分け */
+        .shortage { color: #e74c3c; background-color: #fadbd8; }
+        .surplus { color: #2980b9; background-color: #d4e6f1; }
+        .perfect { color: #27ae60; background-color: #d4efdf; }
+    </style>
+</head>
+<body>
+
+    <h1>💰 お会計清算カンタン幹事くん</h1>
+
+    <section>
+        <h2>1. 全体の会計</h2>
+        <label for="totalBill">支払総額：</label>
+        <input type="number" id="totalBill" value="15000" min="0" style="width: 120px;"> 円
+    </section>
+
+    <section>
+        <h2>2. グループごとの設定</h2>
+        <div id="groupsContainer">
+            </div>
+        <button type="button" id="addGroupBtn">＋ グループを追加する</button>
+    </section>
+
+    <section class="result-box">
+        <h2>3. 計算結果</h2>
+        <div class="result-total">現在の合計集金額: <span id="currentCollected">0</span> 円</div>
+        <div id="statusMessage" class="perfect">金額を入力してください</div>
+    </section>
+
+    <button type="button" id="gmailBtn">
+        ✉️ 計算結果をGmailに送る
+    </button>
+
+    <script>
+        let groupCounter = 0;
+
+        // 画面が読み込まれたら、最初からグループを2つ用意しておく
+        window.addEventListener('DOMContentLoaded', () => {
+            createGroupRow('先輩', 3, 4000);
+            createGroupRow('後輩', 2, 1500);
+            calculateTotal(); // 最初の計算を実行
+        });
+
+        // 「グループを追加する」ボタンを押したときの動き
+        document.getElementById('addGroupBtn').addEventListener('click', () => {
+            createGroupRow('', 1, 0); // 空っぽの入力欄を追加
+            calculateTotal();
+        });
+
+        // 新しいグループの入力欄（行）を作る関数
+        function createGroupRow(name = '', count = 1, price = 0) {
+            groupCounter++;
+            const container = document.getElementById('groupsContainer');
+
+            const row = document.createElement('div');
+            row.className = 'group-row';
+            row.id = `group-row-${groupCounter}`;
+
+            row.innerHTML = `
+                <input type="text" placeholder="グループ名" value="${name}" class="group-name" style="width: 100px;">
+                <input type="number" value="${count}" min="1" class="group-count" style="width: 50px;"> 人
+                <input type="number" value="${price}" min="0" step="100" class="group-price" style="width: 80px;"> 円
+                <span class="group-subtotal">小計: 0 円</span>
+                <button type="button" class="delete-btn" onclick="removeGroupRow(${groupCounter})">削除</button>
+            `;
+
+            container.appendChild(row);
+
+            // 入力欄の値が変わったら、自動で再計算する仕組みを仕込む
+            row.querySelectorAll('input').forEach(input => {
+                input.addEventListener('input', calculateTotal);
+            });
+            
+            // 支払総額の入力欄が変わったときも再計算させる
+            document.getElementById('totalBill').addEventListener('input', calculateTotal);
+        }
+
+        // グループを削除する関数
+        function removeGroupRow(id) {
+            const row = document.getElementById(`group-row-${id}`);
+            if (row) {
+                row.remove();
+                calculateTotal(); // 削除したあとに再計算
+            }
+        }
+
+        // 💰 リアルタイムで金額を計算するメインの関数
+        function calculateTotal() {
+            const totalBill = parseInt(document.getElementById('totalBill').value) || 0;
+            let currentCollected = 0;
+
+            const rows = document.querySelectorAll('.group-row');
+            rows.forEach(row => {
+                const count = parseInt(row.querySelector('.group-count').value) || 0;
+                const price = parseInt(row.querySelector('.group-price').value) || 0;
+                const subtotal = count * price;
+
+                row.querySelector('.group-subtotal').textContent = `小計: ${subtotal.toLocaleString()} 円`;
+                currentCollected += subtotal;
+            });
+
+            document.getElementById('currentCollected').textContent = currentCollected.toLocaleString();
+
+            const statusMessage = document.getElementById('statusMessage');
+            const difference = totalBill - currentCollected;
+
+            if (totalBill === 0 && currentCollected === 0) {
+                statusMessage.textContent = "金額を入力してください";
+                statusMessage.className = "perfect";
+            } else if (difference === 0) {
+                statusMessage.textContent = "🎉 ぴったり集まります！PayPayで回収しましょう！";
+                statusMessage.className = "perfect";
+            } else if (difference > 0) {
+                statusMessage.textContent = `⚠️ あと ${difference.toLocaleString()} 円 足りません！`;
+                statusMessage.className = "shortage";
+            } else {
+                statusMessage.textContent = `💡 おっと！ ${Math.abs(difference).toLocaleString()} 円 多く集まりすぎです！`;
+                statusMessage.className = "surplus";
+            }
+        }
+
+        // ✉️ 「Gmailに送る」ボタンを押したときの動き
+        document.getElementById('gmailBtn').addEventListener('click', () => {
+            const totalBill = document.getElementById('totalBill').value || 0;
+            const currentCollected = document.getElementById('currentCollected').textContent;
+            
+            let mailBody = `【飲み会清算メモ】\n`;
+            mailBody += `支払総額: ${Number(totalBill).toLocaleString()} 円\n`;
+            mailBody += `回収合計: ${currentCollected} 円\n`;
+            mailBody += `-----------------------\n`;
+
+            const rows = document.querySelectorAll('.group-row');
+            rows.forEach(row => {
+                const name = row.querySelector('.group-name').value || '未設定';
+                const count = row.querySelector('.group-count').value || 0;
+                const price = row.querySelector('.group-price').value || 0;
+                const subtotal = count * price;
+                mailBody += `${name}: ${count}人 × ${Number(price).toLocaleString()}円 = ${subtotal.toLocaleString()}円\n`;
+            });
+
+            mailBody += `-----------------------\n`;
+            mailBody += `送金はPayPay等でお願いします！`;
+
+            const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&body=${encodeURIComponent(mailBody)}`;
+            window.open(gmailUrl, '_blank');
+        });
+    </script>
+</body>
+</html>
